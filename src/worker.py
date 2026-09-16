@@ -24,6 +24,7 @@ from src.config import settings
 log = logging.getLogger(__name__)
 
 FOLLOWUP_DELAY_S = 30  # перезапрос провайдера, если callback не пришёл
+FOLLOWUP_MAX_ATTEMPTS = 10  # после стольких попыток перестаём дёргать провайдера  # перезапрос провайдера, если callback не пришёл
 
 
 # ===========================================================================
@@ -120,15 +121,19 @@ async def _apply_provider_result(op: dict, result: provider.ProviderResult) -> N
     match result.outcome:
         case provider.ProviderOutcome.ACCEPTED:
             await repository.save_provider_payment_id(operation_id, result.provider_payment_id)
-            # Планируем follow-up: если callback не придёт, вернёмся через
-            # FOLLOWUP_DELAY_S и дёрнем провайдера снова. Idempotency-Key
-            # защитит от второго платежа.
-            await repository.schedule_retry(operation_id, now + timedelta(seconds=FOLLOWUP_DELAY_S))
+            # Follow-up: если callback не пришёл, вернёмся через FOLLOWUP_DELAY_S.
+            # После FOLLOWUP_MAX_ATTEMPTS попыток перестаём — провайдер всё равно
+            # не переотправляет квитанцию, а циклические вызовы только засоряют логи.
+            if op["attempt_count"] < FOLLOWUP_MAX_ATTEMPTS:
+                await repository.schedule_retry(
+                    operation_id, now + timedelta(seconds=FOLLOWUP_DELAY_S)
+                )
             log.info(
                 "worker.accepted",
                 extra={
                     "operationId": operation_id,
                     "providerPaymentId": result.provider_payment_id,
+                    "followup_attempt": op["attempt_count"] + 1,
                 },
             )
 

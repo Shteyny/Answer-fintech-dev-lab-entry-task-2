@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    volumes:
+      - candidate-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    networks:
+      - app-net
+
+  candidate-service:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://app:app@postgres:5432/app
+      PROVIDER_URL: http://provider-simulator:8081
+      LOG_LEVEL: INFO
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-net
+
+  provider-simulator:
+    image: ghcr.io/fintech-dev-lab/internship-provider-simulator:v0.2.0
+    environment:
+      CALLBACK_URL: http://candidate-service:8080/receipts
+    ports:
+      - "8081:8081"
+    depends_on:
+      - candidate-service
+    networks:
+      - app-net
+
+volumes:
+  candidate-data:
+
+networks:
+  app-net:
+    driver: bridge

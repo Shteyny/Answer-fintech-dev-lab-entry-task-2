@@ -400,12 +400,11 @@ def section_7_persistence(r: Reporter, op_completed: str, op_race: str) -> None:
 
     r.info("docker compose down")
     subprocess.run(["docker", "compose", "down"], capture_output=True, check=False)
+    time.sleep(3)  # ← дать портам освободиться
 
     r.info("docker compose up -d")
     subprocess.run(["docker", "compose", "up", "-d"], capture_output=True, check=False)
-
-    r.info("ждём 6 секунд")
-    time.sleep(6)
+    time.sleep(10)  # ← дать контейнерам подняться
 
     state1 = get_operation(op_completed)
     r.check("OP из шага 1 сохранился", "COMPLETED", state1["status"])

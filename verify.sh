@@ -297,11 +297,12 @@ check_true "все вызовы с одним ppid" "$([ "$UNIQ_PPIDS" -le 1 ] &
 section "7. Сохранность данных при docker compose down && up"
 
 info "docker compose down"
-docker compose down >/dev/null 2>&1
+docker compose down 2>/dev/null
+sleep 3                              # ← дать портам освободиться
+
 info "docker compose up -d"
-docker compose up -d >/dev/null 2>&1
-info "ждём 6 секунд"
-sleep 6
+docker compose up -d 2>/dev/null
+sleep 10                             # ← дать контейнерам подняться
 
 P1=$(jget "$(get_op "$OP")" status)
 P2=$(jget "$(get_op "$OP_RACE")" status)
